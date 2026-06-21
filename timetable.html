@@ -95,6 +95,16 @@ header{position:sticky;top:0;z-index:30;background:rgba(239,241,244,.82);backdro
 .secpill.clear:hover{color:var(--warn);border-color:var(--warn-line)}
 .secnote{font-size:11.5px;color:var(--ink-3);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .secnote b{color:var(--req);font-weight:700}
+.weeknote{max-width:1560px;margin:0 auto;padding:0 22px 13px;display:none}
+.weeknote.show{display:block}
+.weeknote-in{display:flex;align-items:center;gap:12px;justify-content:space-between;background:#fff;border:1px solid var(--line);
+  border-radius:13px;padding:10px 12px 10px 14px;box-shadow:var(--sh-s)}
+.weeknote-t{display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.weeknote-t b{font-family:'Bricolage Grotesque',sans-serif;font-size:13px;color:var(--ink)}
+.weekdot{width:9px;height:9px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 4px var(--warn-soft);flex:0 0 auto}
+.weektoggle{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;flex:0 0 auto}
+.weektoggle button{border:0;background:transparent;border-radius:8px;padding:7px 10px;font-size:11.5px;font-weight:650;color:var(--ink-3);cursor:pointer;white-space:nowrap}
+.weektoggle button.on{background:var(--ink);color:#fff;box-shadow:var(--sh-s)}
 
 main{max-width:1560px;margin:0 auto;padding:20px 22px 40px;
   display:grid;grid-template-columns:386px minmax(0,1fr);gap:20px;align-items:start}
@@ -164,7 +174,7 @@ main{max-width:1560px;margin:0 auto;padding:20px 22px 40px;
 .weekcard-h .legend i.rq{background:var(--req)}
 
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.grid{display:grid;grid-template-columns:62px repeat(5,minmax(150px,1fr));min-width:820px}
+.grid{display:grid;grid-template-columns:62px repeat(var(--days,5),minmax(150px,1fr));min-width:820px}
 .gcell{border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
 .col-head{position:sticky;top:0;z-index:6;background:var(--surface-2);padding:12px 10px 11px;text-align:center}
 .col-head .d{font-family:'Bricolage Grotesque',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:.01em}
@@ -307,7 +317,7 @@ input[type=file]{display:none}
 .cap-foot{padding:13px 26px 20px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-4);letter-spacing:.04em}
 
 /* capture grid: same look as live grid but NO sticky cells (sticky breaks in html2canvas) */
-.cap-grid{display:grid;grid-template-columns:64px repeat(5,1fr)}
+.cap-grid{display:grid;grid-template-columns:64px repeat(var(--days,5),1fr)}
 .cap-grid .gcell{position:static!important}
 .cap-grid .corner{position:static;background:var(--surface-2)}
 .cap-grid .col-head{position:static}
@@ -360,6 +370,15 @@ input[type=file]{display:none}
     </span>
     <div class="secpills" id="secpills"></div>
     <span class="secnote" id="secnote">Pick your section — your 3 compulsory courses get added automatically (you can still remove any).</span>
+  </div>
+  <div class="weeknote" id="weeknote">
+    <div class="weeknote-in">
+      <div class="weeknote-t"><span class="weekdot"></span><b>Academic office update</b><span>22–27 Jun timetable shown here. Normal timetable resumes after this week.</span></div>
+      <div class="weektoggle" id="weektoggle">
+        <button data-week-view="special">22–27 Jun</button>
+        <button data-week-view="normal">Normal</button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -439,6 +458,44 @@ const HOLIDAYS={
   '2026-10-02':'Gandhi Jayanti','2026-10-20':'Dussehra','2026-11-08':'Diwali',
   '2026-11-24':"Guru Nanak's Birthday",'2026-12-25':'Christmas'
 };
+const SPECIAL_WEEK_START='2026-06-22';
+const SPECIAL_WEEK_END='2026-06-27';
+const SPECIAL_WEEK_PREVIEW_FROM='2026-06-21';
+const SPECIAL_WEEK_TITLE='22–27 Jun update';
+const SPECIAL_WEEK_EXTRA_COURSES=[{
+  id:9000,slot:4,course:'Wealth Management',section:null,specialOnly:true,
+  sessions:[
+    {day:'Tuesday',start:'16:10',end:'17:40',e:'17:40',room:'204',faculty:'Mr. Amit Trivedi',slotLabel:'S 4-B'},
+    {day:'Wednesday',start:'18:20',end:'19:50',e:'19:50',room:'204',faculty:'Mr. Amit Trivedi',slotLabel:'S 15-A'},
+    {day:'Wednesday',start:'20:00',end:'21:30',e:'21:30',room:'204',faculty:'Mr. Amit Trivedi',slotLabel:'S 15-B'}
+  ],
+  faculty:['Mr. Amit Trivedi']
+}];
+const SPECIAL_WEEK_REMOVALS={
+  2:[['Monday','09:30'],['Tuesday','11:10']],
+  9:[['Tuesday','09:30']],
+  20:[['Monday','16:10'],['Tuesday','16:10']],
+  59:[['Friday','14:30'],['Friday','16:10']],
+  62:[['Friday','14:30'],['Friday','16:10']],
+  79:[['Thursday','16:10']]
+};
+const SPECIAL_WEEK_PATCHES={
+  1:[['Monday','09:30',{room:'201'}],['Tuesday','11:10',{room:'201'}]],
+  23:[['Monday','16:10',{faculty:'Mr. Atul Bhat'}],['Tuesday','16:10',{faculty:'Mr. Atul Bhat'}]],
+  69:[['Wednesday','11:10',{faculty:'Mr. Sanjay Yashroy'}],['Thursday','09:30',{faculty:'Mr. R. Balaji'}]]
+};
+const SPECIAL_WEEK_ADDITIONS={
+  9:[{day:'Thursday',start:'18:20',end:'19:50',e:'19:50',room:'204',faculty:'Prof. Seema U.',slotLabel:'S 14-A'}],
+  59:[
+    {day:'Saturday',start:'09:30',end:'11:00',e:'11:00',room:'201',faculty:'Prof. Babita Agarwal',slotLabel:'Special'},
+    {day:'Saturday',start:'11:10',end:'12:40',e:'12:40',room:'201',faculty:'Prof. Babita Agarwal',slotLabel:'Special'}
+  ],
+  62:[
+    {day:'Tuesday',start:'18:20',end:'19:50',e:'19:50',room:'305',faculty:'Mr. Pallav Agarwal',slotLabel:'S 14-A'},
+    {day:'Tuesday',start:'20:00',end:'21:30',e:'21:30',room:'305',faculty:'Mr. Pallav Agarwal',slotLabel:'S 14-B'}
+  ],
+  73:[{day:'Thursday',start:'09:30',end:'11:00',e:'11:00',room:'202',faculty:'Prof. Amitabha Sengupta',slotLabel:'S 6-B'}]
+};
 
 let DATA=COURSES.slice();
 DATA.forEach(c=>c.sessions.forEach(s=>{s.e=s.e||s.end||'';}));
@@ -446,7 +503,29 @@ let customFile=false;    // true once a user uploads a different module's file (
 const selected=new Set();    // every chosen course (compulsory + electives all live here, all removable)
 const required=new Set();    // ids that are compulsory for the active section (for labelling only)
 let activeSection=null;
-const byId=id=>DATA.find(c=>c.id===id);
+let weekView=defaultWeekView();
+function todayLocalKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function defaultWeekView(){const t=todayLocalKey();return (t>=SPECIAL_WEEK_PREVIEW_FROM&&t<=SPECIAL_WEEK_END)?'special':'normal';}
+function cloneCourse(c){return Object.assign({},c,{faculty:(c.faculty||[]).slice(),sessions:(c.sessions||[]).map(s=>Object.assign({},s))});}
+function sessionMatch(s,rule){return s.day===rule[0]&&s.start===rule[1];}
+function sortSessions(a,b){const da=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].indexOf(a.day)-['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].indexOf(b.day);return da||tm(a.start)-tm(b.start);}
+function applySpecialWeekCourse(c){
+  const out=cloneCourse(c);
+  const removals=SPECIAL_WEEK_REMOVALS[c.id]||[];
+  out.sessions=out.sessions.filter(s=>!removals.some(r=>sessionMatch(s,r)));
+  (SPECIAL_WEEK_PATCHES[c.id]||[]).forEach(r=>{out.sessions=out.sessions.map(s=>sessionMatch(s,r)?Object.assign({},s,r[2],{e:(r[2].e||r[2].end||s.e||s.end)}):s);});
+  (SPECIAL_WEEK_ADDITIONS[c.id]||[]).forEach(s=>out.sessions.push(Object.assign({},s)));
+  out.sessions.sort(sortSessions);
+  const fac=[...new Set(out.sessions.map(s=>s.faculty).filter(Boolean))];
+  out.faculty=fac.length?fac:(c.faculty||[]).slice();
+  return out;
+}
+function isSpecialWeekActive(){return !customFile&&weekView==='special';}
+function specialData(){return DATA.map(applySpecialWeekCourse).concat(SPECIAL_WEEK_EXTRA_COURSES.map(cloneCourse));}
+function currentData(){if(customFile)return DATA;return weekView==='special'?specialData():DATA;}
+const byId=id=>currentData().find(c=>c.id===id);
+const normalById=id=>DATA.find(c=>c.id===id);
+const specialById=id=>specialData().find(c=>c.id===id);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const tm=t=>{if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;};
 const isReq=id=>required.has(id);
@@ -533,6 +612,13 @@ function renderSecPills(){
   }
   document.getElementById('ebSec').textContent=activeSection?('Section '+activeSection):'No section yet';
 }
+function visibleDays(){return isSpecialWeekActive()?['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']:DAYS;}
+function renderWeekNote(){
+  const host=document.getElementById('weeknote');if(!host)return;
+  const relevant=!customFile&&(todayLocalKey()<=SPECIAL_WEEK_END||weekView==='special');
+  host.classList.toggle('show',relevant);
+  host.querySelectorAll('button[data-week-view]').forEach(b=>b.classList.toggle('on',b.dataset.weekView===weekView));
+}
 
 /* ---------- clash helpers ---------- */
 function clashSet(ids){const m={},bad=new Set();ids.forEach(id=>{const c=byId(id);if(!c)return;c.sessions.forEach(s=>{const k=s.day+'|'+s.start;(m[k]=m[k]||[]).push(id);});});Object.values(m).forEach(g=>{if(g.length>1)g.forEach(i=>bad.add(i));});return bad;}
@@ -546,7 +632,7 @@ function renderList(){
 
   // For compulsory slots, only show the courses for the active section (avoids 9 near-identical rows).
   const bySlot={};let shown=0;
-  DATA.forEach(c=>{
+  currentData().forEach(c=>{
     if(!customFile && REQ_SLOTS.has(c.slot)){
       // only show this section's compulsory pick (if a section is chosen); otherwise show all sections so user can self-pick
       if(activeSection && !required.has(c.id))return;
@@ -567,13 +653,14 @@ function renderList(){
       <span class="pick">${reqSlot?'compulsory':'pick one'}</span><span class="sl"></span></div>`;
     bySlot[sl].forEach(c=>{
       const on=selected.has(c.id),bd=bad.has(c.id),rq=isReq(c.id);
+      const scheduleText=c.sessions.length?c.sessions.map(s=>`<span class="pl">${DS[s.day]} ${s.start} · <em>${esc(s.room||'—')}</em></span>`).join(''):`<span class="pl">No class this week</span>`;
       const el=document.createElement('div');
       el.className='crd'+(on?' on':'')+(bd?' bad':'');
       el.style.setProperty('--cd',ac);el.style.setProperty('--cb',hexa(ac,.07));
       el.innerHTML=`<div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12l5 5L20 6"/></svg></div>
-        <div class="ti">${esc(c.course)}${rq?'<span class="reqtag">Compulsory</span>':''}</div>
+        <div class="ti">${esc(c.course)}${rq?'<span class="reqtag">Compulsory</span>':''}${c.specialOnly?'<span class="reqtag">22–27 Jun</span>':''}</div>
         <div class="mid"><span class="pf">${esc(c.faculty.join(' · '))}</span>${c.section?`<span class="se">SEC ${esc(c.section)}</span>`:''}</div>
-        <div class="ss">${c.sessions.map(s=>`<span class="pl">${DS[s.day]} ${s.start} · <em>${esc(s.room||'—')}</em></span>`).join('')}</div>
+        <div class="ss">${scheduleText}</div>
         <div class="bad-t"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>Overlaps another pick — remove one</div>`;
       el.onclick=()=>toggle(c.id);
       g.appendChild(el);
@@ -588,6 +675,8 @@ const bandIdx=start=>BANDS.findIndex(b=>b.s===start);
 function renderGrid(){
   const grid=document.getElementById('grid');
   const picks=[...selected].map(byId).filter(Boolean);
+  const days=visibleDays();
+  grid.style.setProperty('--days',days.length);
   const cl=clashCount([...selected]);
   const sub=document.getElementById('wkSub'),legend=document.getElementById('legend');
   const rc=[...selected].filter(isReq).length;
@@ -596,22 +685,22 @@ function renderGrid(){
   else{sub.textContent=`${picks.length} course${picks.length>1?'s':''}${rc?' · '+rc+' compulsory':''} · no clashes`;sub.className='sub';legend.style.display=rc?'flex':'none';}
 
   let h='<div class="gcell corner"></div>';
-  const dayCount={};DAYS.forEach(d=>dayCount[d]=0);
+  const dayCount={};days.forEach(d=>dayCount[d]=0);
   picks.forEach(c=>c.sessions.forEach(s=>{if(dayCount[s.day]!=null&&bandIdx(s.start)>=0)dayCount[s.day]++;}));
-  DAYS.forEach(d=>{h+=`<div class="gcell col-head"><div class="d">${d}</div><div class="n">${dayCount[d]||'—'} ${dayCount[d]===1?'class':'classes'}</div></div>`;});
+  days.forEach(d=>{h+=`<div class="gcell col-head"><div class="d">${d}</div><div class="n">${dayCount[d]||'—'} ${dayCount[d]===1?'class':'classes'}</div></div>`;});
 
   if(!picks.length){
     h+=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
       <h3>Your week is empty</h3><p>Pick your section at the top to auto-add compulsory courses, then add electives from the left.</p></div>`;
     grid.innerHTML=h;return;
   }
-  const cells={};DAYS.forEach(d=>cells[d]=BANDS.map(()=>[]));
-  picks.forEach(c=>c.sessions.forEach(s=>{const bi=bandIdx(s.start);if(DAYS.includes(s.day)&&bi>=0)cells[s.day][bi].push({c,s});}));
+  const cells={};days.forEach(d=>cells[d]=BANDS.map(()=>[]));
+  picks.forEach(c=>c.sessions.forEach(s=>{const bi=bandIdx(s.start);if(days.includes(s.day)&&bi>=0)cells[s.day][bi].push({c,s});}));
 
   BANDS.forEach((b,bi)=>{
     if(b.lunch){h+=`<div class="lunch"><span class="t">Lunch</span><span class="ln"></span><span class="t mono" style="letter-spacing:0">${b.s}–${b.e}</span></div>`;return;}
     h+=`<div class="gcell time-col"><div class="a">${b.s}</div><div class="b">${b.e}</div></div>`;
-    DAYS.forEach(d=>{
+    days.forEach(d=>{
       const items=cells[d][bi],clash=items.length>1;
       h+=`<div class="gcell slotcell${clash?' clash':''}">`;
       if(clash)h+=`<div class="clashlabel">⚠ ${items.length} OVERLAP</div>`;
@@ -636,12 +725,13 @@ function renderGrid(){
 /* ---------- mobile agenda ---------- */
 function renderMobileWeek(picks){
   const host=document.getElementById('mweek');if(!host)return;
+  const days=visibleDays();
   if(!picks.length){
     host.innerHTML=`<div class="mempty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
       <h3>Your week is empty</h3><p>Pick your section, then tap “Edit picks” to add electives.</p></div>`;return;
   }
   let h='';
-  DAYS.forEach(d=>{
+  days.forEach(d=>{
     const rows=[];
     BANDS.forEach((b)=>{
       if(b.lunch)return;
@@ -684,7 +774,7 @@ function renderStats(){
   document.getElementById('stClash').textContent=cl;
   document.getElementById('stClashWrap').classList.toggle('zero',cl===0);
 }
-function renderAll(){renderSecPills();renderList();renderGrid();renderStats();}
+function renderAll(){renderWeekNote();renderSecPills();renderList();renderGrid();renderStats();}
 
 function openPanel(){document.body.classList.add('open');setTimeout(()=>{try{document.getElementById('q').focus({preventScroll:true});}catch(e){}},260);}
 function closePanel(){document.body.classList.remove('open');}
@@ -693,6 +783,9 @@ document.getElementById('bClose').onclick=closePanel;
 document.getElementById('scrim').onclick=closePanel;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
 document.getElementById('q').addEventListener('input',renderList);
+document.getElementById('weektoggle').querySelectorAll('button[data-week-view]').forEach(b=>{
+  b.onclick=()=>{weekView=b.dataset.weekView==='special'?'special':'normal';renderAll();toast(weekView==='special'?'Showing 22–27 Jun update':'Showing normal timetable');};
+});
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2100);}
 document.getElementById('bLink').onclick=()=>{writeHash();navigator.clipboard?.writeText(location.href).then(()=>toast('Link copied — it remembers your section + picks'),()=>toast('Your picks are saved in the address bar'));};
@@ -717,21 +810,24 @@ function icsStamp(){
   const d=new Date();
   return d.getUTCFullYear()+String(d.getUTCMonth()+1).padStart(2,'0')+String(d.getUTCDate()).padStart(2,'0')+'T'+String(d.getUTCHours()).padStart(2,'0')+String(d.getUTCMinutes()).padStart(2,'0')+String(d.getUTCSeconds()).padStart(2,'0')+'Z';
 }
+function isSpecialWeekDate(ds){return !customFile&&ds>=SPECIAL_WEEK_START&&ds<=SPECIAL_WEEK_END;}
+function courseForCalendarDate(id,ds){return isSpecialWeekDate(ds)?specialById(id):normalById(id);}
 function buildCalendarICS(courses){
-  const dayNum={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+  const weekDays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const startD=dateFromKey(MODULE_START),endD=dateFromKey(MODULE_END);
   const today=new Date();today.setHours(0,0,0,0);
   const from=today>startD?today:startD;
   const stamp=icsStamp();
+  const ids=courses.map(c=>c.id);
   let events='',count=0,skipped=0;
-  courses.forEach(c=>c.sessions.forEach(s=>{
-    const dow=dayNum[s.day];if(dow==null)return;
-    const end=s.e||s.end||s.start;
-    let d=new Date(from);d.setDate(d.getDate()+((dow-d.getDay()+7)%7));
-    while(d<=endD){
-      const ds=dateKeyOf(d);
-      if(isNoClassDate(ds)){skipped++;}
-      else{
+  let d=new Date(from);
+  while(d<=endD){
+    const ds=dateKeyOf(d),day=weekDays[d.getDay()];
+    if(isNoClassDate(ds)&&!isSpecialWeekDate(ds)){skipped++;d.setDate(d.getDate()+1);continue;}
+    ids.forEach(id=>{
+      const c=courseForCalendarDate(id,ds);if(!c)return;
+      c.sessions.filter(s=>s.day===day).forEach(s=>{
+        const end=s.e||s.end||s.start;
         const faculty=s.faculty||(Array.isArray(c.faculty)?c.faculty.join(', '):c.faculty)||'';
         const section=c.section?'Section '+c.section:'';
         events+=
@@ -750,10 +846,10 @@ function buildCalendarICS(courses){
           'END:VALARM\r\n'+
           'END:VEVENT\r\n';
         count++;
-      }
-      d.setDate(d.getDate()+7);
-    }
-  }));
+      });
+    });
+    d.setDate(d.getDate()+1);
+  }
   return {
     count,
     skipped,
@@ -812,17 +908,18 @@ const footHTML=`<div class="cap-foot">Made by Pulkit with ❤️</div>`;
 /* Build the FULL WEEK GRID as standalone markup (works on any device) */
 function buildFullCapture(){
   const picks=[...selected].map(byId).filter(Boolean);
-  const cells={};DAYS.forEach(d=>cells[d]=BANDS.map(()=>[]));
-  picks.forEach(c=>c.sessions.forEach(s=>{const bi=bandIdx(s.start);if(DAYS.includes(s.day)&&bi>=0)cells[s.day][bi].push({c,s});}));
-  const dayCount={};DAYS.forEach(d=>dayCount[d]=0);
+  const days=visibleDays();
+  const cells={};days.forEach(d=>cells[d]=BANDS.map(()=>[]));
+  picks.forEach(c=>c.sessions.forEach(s=>{const bi=bandIdx(s.start);if(days.includes(s.day)&&bi>=0)cells[s.day][bi].push({c,s});}));
+  const dayCount={};days.forEach(d=>dayCount[d]=0);
   picks.forEach(c=>c.sessions.forEach(s=>{if(dayCount[s.day]!=null&&bandIdx(s.start)>=0)dayCount[s.day]++;}));
 
   let g='<div class="gcell corner"></div>';
-  DAYS.forEach(d=>{g+=`<div class="gcell col-head"><div class="d">${d}</div><div class="n">${dayCount[d]||'—'} ${dayCount[d]===1?'class':'classes'}</div></div>`;});
+  days.forEach(d=>{g+=`<div class="gcell col-head"><div class="d">${d}</div><div class="n">${dayCount[d]||'—'} ${dayCount[d]===1?'class':'classes'}</div></div>`;});
   BANDS.forEach((b,bi)=>{
     if(b.lunch){g+=`<div class="lunch"><span class="t">Lunch</span><span class="ln"></span><span class="t mono" style="letter-spacing:0">${b.s}–${b.e}</span></div>`;return;}
     g+=`<div class="gcell time-col"><div class="a">${b.s}</div><div class="b">${b.e}</div></div>`;
-    DAYS.forEach(d=>{
+    days.forEach(d=>{
       const items=cells[d][bi],clash=items.length>1;
       g+=`<div class="gcell slotcell${clash?' clash':''}">`;
       if(clash)g+=`<div class="clashlabel">⚠ ${items.length} OVERLAP</div>`;
@@ -836,15 +933,16 @@ function buildFullCapture(){
       g+=`</div>`;
     });
   });
-  return `<div class="cap" style="width:1180px">${headerHTML('full week grid')}
+  return `<div class="cap" style="width:${days.length>5?1360:1180}px;--days:${days.length}">${headerHTML(isSpecialWeekActive()?'22–27 Jun grid':'full week grid')}
     <div class="cap-grid">${g}</div>${footHTML}</div>`;
 }
 
 /* Build the MOBILE day-by-day agenda as standalone markup (works on any device) */
 function buildMobileCapture(){
   const picks=[...selected].map(byId).filter(Boolean);
+  const days=visibleDays();
   let m='';
-  DAYS.forEach(d=>{
+  days.forEach(d=>{
     const rows=[];
     BANDS.forEach((b)=>{if(b.lunch)return;
       const items=picks.filter(c=>c.sessions.some(s=>s.day===d&&s.start===b.s))
